@@ -3,7 +3,7 @@
     "rootDir": "./src",
     "outDir": "./dist",
 
-    "module": "nodenext",
+    "module": "ESNext",
     "target": "esnext",
     "types": [],
     
@@ -25,5 +25,9 @@
     "moduleDetection": "force",
     "moduleResolution": "bundler",
     "skipLibCheck": true,
+
+    "paths": {
+      "@domain/*": ["./src/domain/*"]
+    }
   }
 }
