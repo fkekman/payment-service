@@ -1,13 +1,14 @@
 import { PaymentEntity } from "@domain/payment/payment.entity";
 import type { IPaymentGateway } from "@domain/payment/payment.gateway";
 import type { IPaymentRepository } from "@domain/payment/payment.repository";
-import { CreatePaymentUseCase, type CreatePaymentInput } from "./use-cases/create-payment.use-cases";
+import { CreatePaymentUseCase, type CreatePaymentInput } from "./use-cases/create-payment.use-case";
 
-class InMemoryPaymentRepository implements IPaymentRepository {
+class MockPaymentRepository implements IPaymentRepository {
   private store: Map<string, PaymentEntity> = new Map();
   async findById(id: string): Promise<PaymentEntity | null> {
     return this.store.get(id) ?? null;
   }
+
   async save(data: PaymentEntity): Promise<PaymentEntity> {
     const { id } = data;
     this.store.set(id, data);
@@ -21,7 +22,7 @@ class InMemoryPaymentRepository implements IPaymentRepository {
 
 }
 
-class StubPaymentGateway implements IPaymentGateway {
+class MockPaymentGateway implements IPaymentGateway {
   async initiatePayment(payment: PaymentEntity): Promise<string> {
     return 'extID134123'
   }
@@ -32,8 +33,8 @@ class StubPaymentGateway implements IPaymentGateway {
 }
 
 
-const repo = new InMemoryPaymentRepository();
-const gateway = new StubPaymentGateway();
+const repo = new MockPaymentRepository();
+const gateway = new MockPaymentGateway();
 
 const createPaymentUseCase = new CreatePaymentUseCase(repo, gateway);
 

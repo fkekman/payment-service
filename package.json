@@ -5,7 +5,8 @@
   "main": "main.ts",
   "scripts": {
     "build": "tsc && tsc-alias --resolve-full-paths",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test:unit": "vitest run src/**/*.spec.ts src/**/**/*.spec.ts"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +18,9 @@
     "@types/mongodb": "^4.0.6",
     "jest": "^30.4.2",
     "tsc-alias": "^1.8.17",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "big.js": "^7.0.1",
