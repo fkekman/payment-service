@@ -1,49 +1,32 @@
-import { PaymentEntity } from "@domain/payment/payment.entity";
-import type { IPaymentGateway } from "@domain/payment/payment.gateway";
-import type { IPaymentRepository } from "@domain/payment/payment.repository";
 import { CreatePaymentUseCase, type CreatePaymentInput } from "./use-cases/create-payment.use-case";
-
-class MockPaymentRepository implements IPaymentRepository {
-  private store: Map<string, PaymentEntity> = new Map();
-  async findById(id: string): Promise<PaymentEntity | null> {
-    return this.store.get(id) ?? null;
-  }
-
-  async save(data: PaymentEntity): Promise<PaymentEntity> {
-    const { id } = data;
-    this.store.set(id, data);
-    return data;
-  }
-  async update(data: PaymentEntity): Promise<PaymentEntity> {
-    const { id } = data;
-    this.store.set(id, data);
-    return data;
-  }
-
-}
-
-class MockPaymentGateway implements IPaymentGateway {
-  async initiatePayment(payment: PaymentEntity): Promise<string> {
-    return 'extID134123'
-  }
-
-  getPaymentFee(): number {
-    return 0.3;
-  }
-}
+import { client as mongoClient } from "./infrastructure/mongodb/client";
+import { MongoPaymentRepository } from "./infrastructure/mongodb/mongo-payment.repository";
+import { MockPaymentGateway } from "./infrastructure/payment-gateways/mock-payment.gateway";
+import { ProcessWebhookUseCase } from "./use-cases/process-webhook.use-case";
+import { GetPaymentUseCase } from "./use-cases/get-payment.use-case";
+import { ExpressServer } from "./presentation/http/server";
+import { PaymentController } from "./presentation/http/controllers/payment.controller";
 
 
-const repo = new MockPaymentRepository();
+
+
+const repo = new MongoPaymentRepository(mongoClient.db('payment_platform'));
 const gateway = new MockPaymentGateway();
 
 const createPaymentUseCase = new CreatePaymentUseCase(repo, gateway);
+const processWebhookUseCase = new ProcessWebhookUseCase(repo);
+const getPaymentUseCase = new GetPaymentUseCase(repo);
 
-const request: CreatePaymentInput = {
-  amountCents: 43.32,
-  currency: 'RUB',
-  merchantId: ''
-};
+const paymentController = new PaymentController(
+  createPaymentUseCase,
+  processWebhookUseCase,
+  getPaymentUseCase,
+);
 
-const response = await createPaymentUseCase.execute(request);
+const expressServer = new ExpressServer(paymentController);
 
-console.log(response);
+await expressServer.run();
+
+console.log('App started!');
+
+

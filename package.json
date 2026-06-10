@@ -5,8 +5,8 @@
   "main": "main.ts",
   "scripts": {
     "build": "tsc && tsc-alias --resolve-full-paths",
-    "start": "node dist/index.js",
-    "test:unit": "vitest run src/**/*.spec.ts src/**/**/*.spec.ts"
+    "start": "node --env-file=.env --enable-source-maps dist/index.js",
+    "test:unit": "dotenv -e .env -- vitest run src/**/*.spec.ts src/**/**/*.spec.ts"
   },
   "keywords": [],
   "author": "",
@@ -16,15 +16,16 @@
     "@types/big.js": "^7.0.0",
     "@types/express": "^5.0.6",
     "@types/mongodb": "^4.0.6",
+    "dotenv-cli": "^11.0.0",
     "jest": "^30.4.2",
     "tsc-alias": "^1.8.17",
     "typescript": "^6.0.3",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.8"
   },
   "dependencies": {
     "big.js": "^7.0.1",
     "express": "^5.2.1",
+    "ioredis": "^5.11.1",
     "mongodb": "^7.2.0",
     "zod": "^4.4.3"
   }

@@ -1,5 +1,6 @@
-import type { IPaymentTransactionManager } from "@domain/payment/payment-transaction.manager";
 import type { IPaymentRepository } from "@domain/payment/payment.repository";
+import { PaymentStatus } from "@domain/payment/payment.types";
+import { BadRequestError, NotFoundError, PaymentStateConflict } from "./errors";
 
 export interface ProcessWebhookInput {
   invoiceId: string;
@@ -9,41 +10,43 @@ export interface ProcessWebhookInput {
 export class ProcessWebhookUseCase {
   constructor(
     private paymentRepository: IPaymentRepository,
-    private paymentTransactionManager: IPaymentTransactionManager
   ) { }
 
   async execute(data: ProcessWebhookInput): Promise<void> {
-    await this.paymentTransactionManager.runWithTransaction(async () => {
-      const { invoiceId, status } = data;
 
-      const foundPayment = await this.paymentRepository.findById(invoiceId);
-      if (!foundPayment) {
-        throw new Error('Payment not found');
-      }
+    const { invoiceId, status } = data;
 
-      if (foundPayment.isSettled()) {
-        return;
-      }
+    const foundPayment = await this.paymentRepository.findById(invoiceId);
+    if (!foundPayment) {
+      throw new NotFoundError('Payment not found');
+    }
 
-      if (!foundPayment.isCompletable()) {
-        throw new Error('Cant complete payment');
-      }
-
-      switch (status) {
-        case 'paid': {
-          foundPayment.complete();
-          break;
+    // TODO: Domain violation
+    switch (status) {
+      case 'paid': {
+        if (foundPayment.status === PaymentStatus.COMPLETE) return;
+        if (!foundPayment.canComplete()) {
+          throw new PaymentStateConflict('Cant complete payment');
         }
-        case 'failed': {
-          foundPayment.fail();
-          break;
-        }
-        default: {
-          throw new Error('Unexpected payment status');
-        }
+        foundPayment.complete();
+        break;
       }
-      await this.paymentRepository.update(foundPayment);
-    });
-
+      case 'failed': {
+        if (foundPayment.status === PaymentStatus.FAIL) return;
+        if (!foundPayment.canComplete()) {
+          throw new PaymentStateConflict('Cant fail payment');
+        }
+        foundPayment.fail();
+        break;
+      }
+      default: {
+        throw new BadRequestError('Unexpected payment status');
+      }
+    }
+    const updated =
+      await this.paymentRepository.updateWithStatusCheck(foundPayment, PaymentStatus.PENDING);
+    if (!updated) {
+      console.warn('Concurent request! Update failed');
+    }
   }
 }

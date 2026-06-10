@@ -7,7 +7,7 @@ import {
   type LoadPaymentOptions,
   type PaymentStatusType,
 } from './payment.types';
-import { PaymentSchema } from './payment.schema';
+import { PaymentStatusError, PaymentValidationError } from './payment.errors';
 
 export class PaymentEntity {
   public readonly id!: string;
@@ -32,8 +32,6 @@ export class PaymentEntity {
     this.status = data.status;
     this.createdAt = data.createdAt;
     this.externalId = data.externalId;
-
-    Object.assign(this, data);
   }
 
   public static load(data: LoadPaymentOptions): PaymentEntity {
@@ -50,9 +48,20 @@ export class PaymentEntity {
   public static createDraft(options: CreateDraftPaymentOptions): PaymentEntity {
     const { amountCents, currency, merchantId, feePercent } = options;
 
-    const result = PaymentSchema.safeParse({ amountCents, currency, feePercent });
-    if (!result.success) {
-      throw new Error(result.error.issues[0]?.message);
+    if (amountCents <= 0) {
+      throw new PaymentValidationError('amountCents should be above zero');
+    }
+
+    if (feePercent < 0 || feePercent >= 1) {
+      throw new PaymentValidationError('feePercent should be above zero and bellow 1')
+    }
+
+    if (merchantId.length === 0) {
+      throw new PaymentValidationError('merchantId cant be empty');
+    }
+
+    if (currency.length !== 3) {
+      throw new PaymentValidationError('currency should have length of 3');
     }
 
     const _amountCents = Big(amountCents);
@@ -75,33 +84,41 @@ export class PaymentEntity {
     });
   }
 
-  public toPending(externalId: string) {
-    if (this.status !== PaymentStatus.DRAFT) {
-      throw new Error('Cant set to pending not from draft');
+  public canMoveToPending() {
+    return this.status === PaymentStatus.DRAFT;
+  }
+
+  public moveToPending(externalId: string) {
+    if (!this.canMoveToPending()) {
+      throw new PaymentStatusError('Cant set to pending not from draft');
     }
     this.status = PaymentStatus.PENDING;
     this.externalId = externalId;
   }
 
+  public canComplete() {
+    return this.status === PaymentStatus.PENDING;
+  }
+
   public complete() {
-    if (this.status !== PaymentStatus.PENDING) {
-      throw new Error('Cant complete payment not from pending');
+    if (!this.canComplete()) {
+      throw new PaymentStatusError('Cant complete payment not from pending');
     }
     this.status = PaymentStatus.COMPLETE;
   }
 
+  public canFail() {
+    return this.status !== PaymentStatus.COMPLETE;
+  }
+
   public fail() {
-    if (this.status === PaymentStatus.COMPLETE) {
-      throw new Error('Cant fail already completed payment');
+    if (!this.canFail()) {
+      throw new PaymentStatusError('Cant fail already completed payment');
     }
     this.status = PaymentStatus.FAIL;
   }
 
   public isSettled() {
-    return this.status === PaymentStatus.FAIL || this.status === PaymentStatus.COMPLETE;
-  }
-
-  public isCompletable() {
-    return this.status === PaymentStatus.PENDING;
+    return this.status === PaymentStatus.COMPLETE || this.status === PaymentStatus.FAIL;
   }
 }
